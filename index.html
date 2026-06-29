@@ -299,6 +299,11 @@ a{text-decoration:none;color:inherit}
 .modal h3{font-size:26px;font-weight:600;color:var(--navy);margin-bottom:8px}
 .modal p.sub{color:var(--slate);font-size:15.5px;margin-bottom:22px;font-weight:500}
 .modal label{display:block;font-size:13px;font-weight:700;color:var(--navy);margin:14px 0 6px}
+.modal-row{display:flex;gap:14px}
+.modal-row>div{flex:1;min-width:0}
+.modal-row label{margin-top:0}
+.form-msg{margin-top:16px;color:#c0392b;font-size:14px;font-weight:600;background:rgba(192,57,43,.08);
+  border:1px solid rgba(192,57,43,.25);border-radius:8px;padding:10px 12px}
 .modal input,.modal select{width:100%;padding:12px 14px;border:1.5px solid var(--hair);border-radius:10px;
   font-family:'Manrope',sans-serif;font-size:15px;color:var(--navy);background:#fff}
 .modal input:focus,.modal select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(11,117,225,.15)}
@@ -736,20 +741,27 @@ a{text-decoration:none;color:inherit}
     <div class="modal-form" id="modalForm">
       <h3 id="modalTitle">Join the Waitlist</h3>
       <p class="sub">Be first to modernize your tunnel with AMP OverDrive. We'll reach out with availability and next steps.</p>
-      <label for="f-name">Full name</label>
-      <input id="f-name" type="text" autocomplete="name" placeholder="Jane Operator">
-      <div class="err" data-for="f-name">Please enter your name.</div>
-      <label for="f-email">Work email</label>
-      <input id="f-email" type="email" autocomplete="email" placeholder="jane@yourwash.com">
-      <div class="err" data-for="f-email">Please enter a valid email.</div>
-      <label for="f-company">Company / site</label>
+      <div class="modal-row">
+        <div>
+          <label for="f-first">First name</label>
+          <input id="f-first" type="text" autocomplete="given-name" placeholder="Jane">
+          <div class="err" data-for="f-first">Please enter your first name.</div>
+        </div>
+        <div>
+          <label for="f-last">Last name</label>
+          <input id="f-last" type="text" autocomplete="family-name" placeholder="Operator">
+          <div class="err" data-for="f-last">Please enter your last name.</div>
+        </div>
+      </div>
+      <label for="f-company">Company</label>
       <input id="f-company" type="text" autocomplete="organization" placeholder="Your Car Wash">
       <div class="err" data-for="f-company">Please enter your company.</div>
-      <label for="f-sites">Number of sites</label>
-      <select id="f-sites">
-        <option value="">Select…</option>
-        <option>1</option><option>2–5</option><option>6–15</option><option>16+</option>
-      </select>
+      <label for="f-phone">Phone</label>
+      <input id="f-phone" type="tel" autocomplete="tel" placeholder="(555) 555-5555">
+      <div class="err" data-for="f-phone">Please enter a valid phone number.</div>
+      <label for="f-email">Email</label>
+      <input id="f-email" type="email" autocomplete="email" placeholder="jane@yourwash.com">
+      <div class="err" data-for="f-email">Please enter a valid email.</div>
       <button class="btn btn-fill" id="modalSubmit" type="button">Join the Waitlist</button>
     </div>
     <div class="modal-success" id="modalSuccess">
@@ -762,36 +774,85 @@ a{text-decoration:none;color:inherit}
 </div>
 
 <script>
-/* ---- waitlist modal ----
-   NOTE: front-end only. Wire submission to your endpoint where marked below
-   (e.g. Formspree, HubSpot, or a /api/waitlist route). */
+/* ---- waitlist modal + ActiveCampaign submission ----
+
+   ===== ActiveCampaign config — fill in from your AC embedded form =====
+   1. In ActiveCampaign, open (or create) an embedded form for the waitlist.
+   2. From its "Integrate / embed code" copy your account URL and the form's
+      u and f values, and paste them below.
+   3. "Company" maps to an AC custom field — put that field's id in companyField
+      (looks like field[7,0]); leave "" if you don't collect company in AC.
+   4. The amp_overdrive_launch tag is sent on submit. For server-side
+      reliability, ALSO add that tag in the AC form's Options so every
+      submission is tagged regardless of the client.
+   Until endpoint is set (still contains YOURACCOUNT), the form runs in demo
+   mode: it validates and shows the success state without posting anywhere. */
 (function(){
+  var AC={
+    endpoint:"https://YOURACCOUNT.activehosted.com/proc.php",
+    u:"1",
+    f:"1",
+    companyField:"field[1,0]",
+    tag:"amp_overdrive_launch"
+  };
+
   var back=document.getElementById('modalBack'),
       form=document.getElementById('modalForm'),
       success=document.getElementById('modalSuccess'),
-      closeBtn=document.getElementById('modalClose');
+      closeBtn=document.getElementById('modalClose'),
+      submitBtn=document.getElementById('modalSubmit');
+
+  // inline message node (network errors)
+  var msg=document.createElement('p');
+  msg.className='form-msg';msg.style.display='none';
+  submitBtn.parentNode.insertBefore(msg,submitBtn);
+
   function open(){back.classList.add('open');document.body.style.overflow='hidden';
-    form.style.display='block';success.style.display='none';
-    var t=document.getElementById('f-name');if(t)setTimeout(function(){t.focus()},60);}
+    form.style.display='block';success.style.display='none';msg.style.display='none';
+    var t=document.getElementById('f-first');if(t)setTimeout(function(){t.focus()},60);}
   function close(){back.classList.remove('open');document.body.style.overflow='';clearErr();}
-  function clearErr(){[].forEach.call(document.querySelectorAll('.modal .err'),function(e){e.style.display='none';});
-    [].forEach.call(document.querySelectorAll('.modal input,.modal select'),function(e){e.classList.remove('invalid');});}
+  function clearErr(){msg.style.display='none';
+    [].forEach.call(document.querySelectorAll('.modal .err'),function(e){e.style.display='none';});
+    [].forEach.call(document.querySelectorAll('.modal input'),function(e){e.classList.remove('invalid');});}
   [].forEach.call(document.querySelectorAll('.js-waitlist'),function(b){b.addEventListener('click',open);});
   closeBtn.addEventListener('click',close);
   back.addEventListener('click',function(e){if(e.target===back)close();});
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&back.classList.contains('open'))close();});
 
+  function val(id){return document.getElementById(id).value.trim();}
+  function digits(s){return (s||'').replace(/\D/g,'');}
   function showErr(id){var i=document.getElementById(id);i.classList.add('invalid');
     var e=document.querySelector('.modal .err[data-for="'+id+'"]');if(e)e.style.display='block';}
-  document.getElementById('modalSubmit').addEventListener('click',function(){
+  function showMsg(t){msg.textContent=t;msg.style.display='block';}
+  function setLoading(on){submitBtn.disabled=on;submitBtn.textContent=on?'Submitting…':'Join the Waitlist';}
+  function done(){form.style.display='none';success.style.display='block';}
+
+  function submitToAC(d){
+    if(AC.endpoint.indexOf('YOURACCOUNT')!==-1){
+      console.warn('[AMP waitlist] ActiveCampaign not configured — set AC.endpoint / AC.u / AC.f. Showing success (demo mode).',d);
+      return done();
+    }
+    setLoading(true);
+    var p=new URLSearchParams();
+    p.set('u',AC.u);p.set('f',AC.f);p.set('s','');p.set('c','0');p.set('m','0');p.set('act','sub');p.set('v','2');
+    p.set('firstname',d.firstname);p.set('lastname',d.lastname);p.set('email',d.email);p.set('phone',d.phone);
+    if(AC.companyField)p.set(AC.companyField,d.company);
+    if(AC.tag)p.append('tags[]',AC.tag);
+    fetch(AC.endpoint,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p.toString()})
+      .then(function(){setLoading(false);done();})
+      .catch(function(){setLoading(false);showMsg('Something went wrong sending your info. Please try again, or email us directly.');});
+  }
+
+  submitBtn.addEventListener('click',function(){
     clearErr();var ok=true;
-    var name=document.getElementById('f-name'),email=document.getElementById('f-email'),comp=document.getElementById('f-company');
-    if(!name.value.trim()){showErr('f-name');ok=false;}
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())){showErr('f-email');ok=false;}
-    if(!comp.value.trim()){showErr('f-company');ok=false;}
+    var first=val('f-first'),last=val('f-last'),comp=val('f-company'),phone=val('f-phone'),email=val('f-email');
+    if(!first){showErr('f-first');ok=false;}
+    if(!last){showErr('f-last');ok=false;}
+    if(!comp){showErr('f-company');ok=false;}
+    if(digits(phone).length<7){showErr('f-phone');ok=false;}
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){showErr('f-email');ok=false;}
     if(!ok)return;
-    /* >>> WIRE SUBMISSION HERE (POST the field values to your endpoint) <<< */
-    form.style.display='none';success.style.display='block';
+    submitToAC({firstname:first,lastname:last,company:comp,phone:phone,email:email});
   });
   document.getElementById('modalDone').addEventListener('click',close);
 })();
